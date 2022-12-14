@@ -26,33 +26,34 @@ def move(pos, dir, n=1):
 
 
 def touches(p1, p2):
-    return (
-        p2 == p1
-        or p2 == move(move(p1, Dir.U), Dir.L)
-        or p2 == move(p1, Dir.U)
-        or p2 == move(move(p1, Dir.U), Dir.R)
-        or p2 == move(p1, Dir.L)
-        or p2 == move(p1, Dir.R)
-        or p2 == move(move(p1, Dir.D), Dir.L)
-        or p2 == move(p1, Dir.D)
-        or p2 == move(move(p1, Dir.D), Dir.R)
-    )
+    if p1 == p2:
+        return True
+    l = norm(conn(p1, p2))
+    return l == 1 or l == math.sqrt(2)
+
+
+def conn(p1, p2):
+    return (p1[0] - p2[0], p1[1] - p2[1])
+
+
+def norm(vec):
+    return math.sqrt(vec[0] ** 2 + vec[1] ** 2)
 
 
 def normalize(vec):
-    norm = math.sqrt(vec[0] ** 2 + vec[1] ** 2)
-    return (vec[0] / norm, vec[1] / norm)
+    l = norm(vec)
+    return (vec[0] / l, vec[1] / l)
 
 
 def follow(pos_h, pos_t):
     if touches(pos_h, pos_t):
         return pos_t
-    dir = normalize((pos_h[0] - pos_t[0], pos_h[1] - pos_t[1]))
+    dir = normalize(conn(pos_h, pos_t))
     if dir in [d.value for d in Dir]:  # H and T on same row or column
         dir = Dir(dir)
         pos_t_new = move(pos_t, dir)
     else:
-        dir = (dir[0] / abs(dir[0]), dir[1] / abs(dir[1]))
+        dir = (math.copysign(1, dir[0]), math.copysign(1, dir[1]))
         pos_t_new = move(pos_t, Dir((dir[0], 0)))
         pos_t_new = move(pos_t_new, Dir((0, dir[1])))
     return pos_t_new
@@ -94,9 +95,12 @@ if __name__ == "__main__":
     n = 2
     tail_visited = visit(movements, n)
     pretty_print(tail_visited)
-    print(len(tail_visited))
+    visit_count_a = len(tail_visited)
 
     n = 10
     tail_visited = visit(movements, n)
     pretty_print(tail_visited)
-    print(len(tail_visited))
+    visit_count_b = len(tail_visited)
+
+    print(visit_count_a)
+    print(visit_count_b)
