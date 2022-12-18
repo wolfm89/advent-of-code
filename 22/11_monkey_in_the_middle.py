@@ -27,7 +27,7 @@ def read_monkey(reader):
     line = reader.readline().strip()
     target_false = int(line.split(" ")[-1])
     monkey = {
-        "starting_items": starting_items,
+        "items": starting_items,
         "operation": operation,
         "test": [operator.mod, test, 0],
         "targets": [target_true, target_false],
@@ -47,30 +47,30 @@ def read(filename):
     return monkeys
 
 
-def inspect_items(monkey, relief=0):
+def inspect_items(monkey, lcm=0):
     items = []
     targets = []
-    for i in reversed(range(len(monkey["starting_items"]))):
-        monkey["starting_items"][i] = monkey["operation"][0](monkey["starting_items"][i], monkey["operation"][1])
-        if relief == 0:
-            monkey["starting_items"][i] //= 3
+    for i in reversed(range(len(monkey["items"]))):
+        monkey["items"][i] = monkey["operation"][0](monkey["items"][i], monkey["operation"][1])
+        if lcm == 0:
+            monkey["items"][i] //= 3
         else:
-            monkey["starting_items"][i] %= relief
-        if monkey["test"][0](monkey["starting_items"][i], monkey["test"][1]) == monkey["test"][2]:
+            monkey["items"][i] %= lcm
+        if monkey["test"][0](monkey["items"][i], monkey["test"][1]) == monkey["test"][2]:
             targets.append(monkey["targets"][0])
         else:
             targets.append(monkey["targets"][1])
-        items.append(monkey["starting_items"].pop(i))
+        items.append(monkey["items"].pop(i))
         monkey["n_items_inspected"] += 1
     return items, targets
 
 
-def play_rounds(rounds, monkeys, relief=0):
+def play_rounds(rounds, monkeys, lcm=0):
     for _ in range(rounds):
         for monkey in monkeys:
-            items, targets = inspect_items(monkey, relief)
+            items, targets = inspect_items(monkey, lcm)
             for item, target in zip(items, targets):
-                monkeys[target]["starting_items"].append(item)
+                monkeys[target]["items"].append(item)
 
 
 if __name__ == "__main__":
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     rounds = 20
     play_rounds(rounds, monkeys)
     for i, monkey in enumerate(monkeys):
-        print(f"Monkey {i}: {', '.join(map(str, monkey['starting_items']))}")
+        print(f"Monkey {i}: {', '.join(map(str, monkey['items']))}")
     print()
     for i, monkey in enumerate(monkeys):
         print(f"Monkey {i} inspected items {monkey['n_items_inspected']} times.")
@@ -91,10 +91,11 @@ if __name__ == "__main__":
     print()
 
     rounds = 10000
-    relief = math.prod(monkey["test"][1] for monkey in monkeys)
-    play_rounds(rounds, monkeys_norelief, relief=relief)
+    divisors = [monkey["test"][1] for monkey in monkeys]
+    lcm = math.lcm(*divisors)
+    play_rounds(rounds, monkeys_norelief, lcm=lcm)
     for i, monkey in enumerate(monkeys_norelief):
-        print(f"Monkey {i}: {', '.join(map(str, monkey['starting_items']))}")
+        print(f"Monkey {i}: {', '.join(map(str, monkey['items']))}")
     print()
     for i, monkey in enumerate(monkeys_norelief):
         print(f"Monkey {i} inspected items {monkey['n_items_inspected']} times.")
