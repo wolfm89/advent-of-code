@@ -9,10 +9,10 @@ DIRS = [(0, 1), (-1, 1), (1, 1)]
 def min_max_xy(rocks, sandhole, floor=None):
     coords = rocks
     coords.append(sandhole)
-    if floor is not None:
-        coords.extend([(x, floor[2]) for x in range(floor[0], floor[1] + 1)])
     min_x, max_x = min_max(coords, 0)
     min_y, max_y = min_max(coords, 1)
+    if floor is not None:
+        max_y = floor
     return (min_x, min_y), (max_x, max_y)
 
 
@@ -74,24 +74,19 @@ def materialize(rocks):
     return new_rocks
 
 
-def move(rocks, sand, s, floor=None):
-    for d in DIRS:
-        s_new = (s[0] + d[0], s[1] + d[1])
-        if not (s_new in rocks) and not (s_new in sand) and (floor is None or not s_new[1] == floor):
-            return s_new
-    return s
-
-
 def simulate(rocks, sandhole, condition, sand, floor=None):
     i = 1
     while True:
         s = sand[-1]
-        for d in DIRS:
-            s_new = (s[0] + d[0], s[1] + d[1])
-            if not (s_new in rocks) and not (s_new in sand) and (floor is None or not s_new[1] == floor):
-                break
-            else:
-                s_new = s
+        if s[1] == MAX[1]:
+            s_new = s
+        else:
+            for d in DIRS:
+                s_new = (s[0] + d[0], s[1] + d[1])
+                if (floor is None or not s_new[1] == floor) and not (s_new in sand) and not (s_new in rocks):
+                    break
+                else:
+                    s_new = s
         if condition(s_new, sandhole):
             break
         if s_new == sand[-1]:
@@ -101,10 +96,8 @@ def simulate(rocks, sandhole, condition, sand, floor=None):
         # draw(rocks, sandhole, sand)
         # input("Press key to continue...")
         # print()
-        if i % 1000 == 0:
+        if i % 10000 == 0:
             print(i, len(sand))
-        if i == 300000:
-            return sand
         i += 1
     return sand[:-1]
 
@@ -126,19 +119,18 @@ if __name__ == "__main__":
     MIN, MAX = min_max_xy(rocks, sandhole)
 
     sand = [sandhole]
-    # draw(rocks, sandhole, sand)
-    # print()
-    # sand = simulate(rocks, sandhole, condition1, sand)
+    draw(rocks, sandhole, [])
+    print()
+    sand = simulate(rocks, sandhole, condition1, sand)
     draw(rocks, sandhole, sand)
     print(len(sand))
+    print()
 
     floor = MAX[1] + 2
+    MIN, MAX = min_max_xy(rocks, sandhole, floor=floor)
     sand = [sandhole]
-    # draw(rocks, sandhole, sand)
-    # print()
+    draw(rocks, sandhole, [])
+    print()
     sand = simulate(rocks, sandhole, condition2, sand, floor=floor)
-    sand_min_x = min(sand, key=lambda s: s[0])[0]
-    sand_max_x = max(sand, key=lambda s: s[0])[0]
-    MIN, MAX = min_max_xy(rocks, sandhole, floor=(sand_min_x, sand_max_x, floor))
     draw(rocks, sandhole, sand, floor=floor)
     print(len(sand))
