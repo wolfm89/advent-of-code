@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import math
-import copy
 
 DIRS = [(0, 1), (-1, 1), (1, 1)]
 
@@ -82,29 +81,34 @@ def move(rocks, sand, s):
 
 
 def simulate_sand(rocks, sand):
-    sand_new = copy.deepcopy(sand)
-    s_latest = sand_new[-1]
+    s_latest = sand[-1]
     s_new = move(rocks, sand, s_latest)
-    sand_new[-1] = s_new
-    return sand_new
+    return s_new
 
 
 if __name__ == "__main__":
     global MIN, MAX
     sandhole = (500, 0)
+
     rocks = read("input/14.txt")
     rocks = materialize(rocks)
     MIN, MAX = min_max_xy(rocks, sandhole)
-    abyss = [(x, MAX[1] + 1) for x in range(MIN[0] - 1, MAX[0] + 2)]
+
     sand = [sandhole]
-    while not any(s in abyss for s in sand):
-        sand_new = simulate_sand(rocks, sand)
-        if sand_new == sand:
-            sand_new.append(sandhole)
-        sand = sand_new
+
+    draw(rocks, sandhole, sand)
+    print()
+
+    while not any(s[1] == MAX[1] or s[0] == MIN[0] or s[0] == MAX[0] for s in sand):
+        s_new = simulate_sand(rocks, sand)
+        if s_new == sand[-1]:
+            sand.append(sandhole)
+        else:
+            sand[-1] = s_new
         # draw(rocks, sandhole, sand)
         # input("Press key to continue...")
         # print()
     sand = sand[:-1]
+
     draw(rocks, sandhole, sand)
     print(len(sand))
