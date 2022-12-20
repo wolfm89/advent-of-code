@@ -129,8 +129,7 @@ if __name__ == "__main__":
     floor = MAX[1] + 2
     MIN, MAX = min_max_xy(rocks, sandhole, floor=floor)
     sand = [sandhole]
-    draw(rocks, sandhole, [])
-    print()
     sand = simulate(rocks, sandhole, condition2, sand, floor=floor)
+    sand.append(sandhole)
     draw(rocks, sandhole, sand, floor=floor)
     print(len(sand))
