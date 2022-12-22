@@ -77,12 +77,22 @@ def digit(number, n):
     return number // 10 ** (n - 1) % 10
 
 
-def no_beacons_at(sensors, distances, y):
+def intersection(a, b):
+    if b[0] > a[1] or a[0] > b[1]:
+        return None
+    return (max(a[0], b[0]), min(a[1], b[1]))
+
+
+def no_beacons_at(sensors, distances, y, x_boundary=None):
     ranges = []
     for s, d in zip(sensors, distances):
         x_diff = d - abs(s[1] - y)
         if x_diff >= 0:
-            ranges.append((s[0] - x_diff, s[0] + x_diff))
+            r = (s[0] - x_diff, s[0] + x_diff)
+            if x_boundary is not None:
+                r = intersection(r, x_boundary)
+            if r is not None:
+                ranges.append(r)
 
     union_ranges = []
     for begin, end in sorted(ranges):
@@ -103,9 +113,11 @@ if __name__ == "__main__":
     if test:
         sensors, beacons = read("input/15_test.txt")
         y = 10
+        MAX = 20
     else:
         sensors, beacons = read("input/15.txt")
         y = 2_000_000
+        MAX = 4_000_000
 
     distances = [dist(s, b) for s, b in zip(sensors, beacons)]
     min_x, max_x = min_max(0, sensors, distances)
@@ -120,3 +132,14 @@ if __name__ == "__main__":
         n_no_beacons_pos += r[1] - r[0] + 1
     n_no_beacons_pos -= sum(1 for b in set(beacons) if b[1] == y)
     print(n_no_beacons_pos)
+
+    for y in range(0, MAX + 1):
+        impossible_beacon_ranges = no_beacons_at(sensors, distances, y=y, x_boundary=(0, MAX))
+        if y % round((MAX + 1) / 100) == 0:
+            print(f"{round(y / (MAX + 1) * 100)}%", end="\r", flush=True)
+        if impossible_beacon_ranges[0] != [0, MAX]:
+            b = (impossible_beacon_ranges[0][1] + 1, y)
+            break
+    print()
+    print(b)
+    print(b[0] * 4_000_000 + b[1])
