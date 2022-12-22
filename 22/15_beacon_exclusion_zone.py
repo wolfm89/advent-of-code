@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     for y in range(0, MAX + 1):
         impossible_beacon_ranges = no_beacons_at(sensors, distances, y=y, x_boundary=(0, MAX))
-        if y % round((MAX + 1) / 100) == 0:
+        if y % math.ceil((MAX + 1) / 100) == 0:
             print(f"{round(y / (MAX + 1) * 100)}%", end="\r", flush=True)
         if impossible_beacon_ranges[0] != [0, MAX]:
             b = (impossible_beacon_ranges[0][1] + 1, y)
