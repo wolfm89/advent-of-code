@@ -3,7 +3,9 @@
 
 import sys
 import re
+from copy import copy
 from collections import deque
+from collections import defaultdict
 
 
 def read(filename):
@@ -16,17 +18,16 @@ def read(filename):
 
 
 def bfs(valves, T, pos):
-    # time left, current position, valves open, total pressure released
-    queue = deque([(T, pos, [], 0)])
+    queue = deque([(T, pos, [], defaultdict(lambda: 0))])
 
     processed = set()
-    released_pressures = []
+    solutions = []
 
     while queue:
         t, p, o, pr = queue.popleft()
 
         if t == 0:
-            released_pressures.append(pr)
+            solutions.append((o, pr))
             continue
 
         if (p, tuple(o)) in processed:
@@ -34,14 +35,30 @@ def bfs(valves, T, pos):
         processed.add((p, tuple(o)))
 
         for v in o:
-            pr += valves[v]["flow_rate"]
+            pr[v] += valves[v]["flow_rate"]
 
         for c in valves[p]["connections"]:
-            queue.append((t - 1, c, o, pr))
+            queue.append((t - 1, c, o, copy(pr)))
         if valves[p]["flow_rate"] > 0 and p not in o:
-            queue.append((t - 1, p, o + [p], pr))
+            queue.append((t - 1, p, o + [p], copy(pr)))
 
-    return max(released_pressures)
+    return solutions
+
+
+def create_range(n):
+    result = []
+    for i in range(n + 1):
+        result.append(i)
+        result.append(i)
+    return result
+
+
+def intersect(p, q):
+    return any(i in p for i in q)
+
+
+def intersect2(p, q):
+    return not set(p).isdisjoint(q)
 
 
 if __name__ == "__main__":
@@ -57,4 +74,36 @@ if __name__ == "__main__":
 
     pos = "AA"
     T = 30
-    print(bfs(valves, T, pos))
+
+    solutions = bfs(valves, T, pos)
+    best_solution = max(solutions, key=lambda x: sum(x[1].values()))
+    print(best_solution)
+    print(sum(best_solution[1].values()))
+
+    T = 26
+    solutions = bfs(valves, T, pos)
+    solutions.sort(reverse=True, key=lambda x: sum(x[1].values()))
+    max_len = len(max(solutions, key=lambda x: len(x[0]))[0])
+
+    best = None
+    # r = create_range(int(max_len / 2))
+    r = [0, 0]
+    for i, j in zip(r, r[1:]):
+        print(i, j)
+        for s1 in solutions:
+            for s2 in solutions:
+                ls1i = len(s1[0]) - i
+                ls2j = len(s2[0]) - j
+                if not intersect(s1[0][0:ls1i], s2[0][0:ls2j]):
+                    new_d1 = {v: s1[1][v] for v in s1[0][0:ls1i]}
+                    new_d2 = {v: s2[1][v] for v in s2[0][0:ls2j]}
+                    sum1 = sum(new_d1.values())
+                    sum2 = sum(new_d2.values())
+                    if best is not None and sum2 < sum(best[1][1].values()):
+                        break
+                    if best is None or (sum1 + sum2 > sum(best[0][1].values()) + sum(best[1][1].values())):
+                        best = ((s1[0][0:ls1i], new_d1), (s2[0][0:ls2j], new_d2))
+                        print(best)
+                        print(sum(best[0][1].values()) + sum(best[1][1].values()))
+    print(best)
+    print(sum(best[0][1].values()) + sum(best[1][1].values()))
