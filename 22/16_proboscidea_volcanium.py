@@ -83,27 +83,18 @@ if __name__ == "__main__":
     T = 26
     solutions = bfs(valves, T, pos)
     solutions.sort(reverse=True, key=lambda x: sum(x[1].values()))
-    max_len = len(max(solutions, key=lambda x: len(x[0]))[0])
 
     best = None
-    # r = create_range(int(max_len / 2))
-    r = [0, 0]
-    for i, j in zip(r, r[1:]):
-        print(i, j)
-        for s1 in solutions:
-            for s2 in solutions:
-                ls1i = len(s1[0]) - i
-                ls2j = len(s2[0]) - j
-                if not intersect(s1[0][0:ls1i], s2[0][0:ls2j]):
-                    new_d1 = {v: s1[1][v] for v in s1[0][0:ls1i]}
-                    new_d2 = {v: s2[1][v] for v in s2[0][0:ls2j]}
-                    sum1 = sum(new_d1.values())
-                    sum2 = sum(new_d2.values())
-                    if best is not None and sum2 < sum(best[1][1].values()):
-                        break
-                    if best is None or (sum1 + sum2 > sum(best[0][1].values()) + sum(best[1][1].values())):
-                        best = ((s1[0][0:ls1i], new_d1), (s2[0][0:ls2j], new_d2))
-                        print(best)
-                        print(sum(best[0][1].values()) + sum(best[1][1].values()))
+    for s1 in solutions:
+        for s2 in solutions:
+            if not intersect(s1[0], s2[0]):
+                sum1 = sum(s1[1].values())
+                sum2 = sum(s2[1].values())
+                if best is not None and sum2 < sum(best[1][1].values()):
+                    break
+                if best is None or (sum1 + sum2 > sum(best[0][1].values()) + sum(best[1][1].values())):
+                    best = (s1, s2)
+                    # print(best)
+                    # print(sum(best[0][1].values()) + sum(best[1][1].values()))
     print(best)
     print(sum(best[0][1].values()) + sum(best[1][1].values()))
