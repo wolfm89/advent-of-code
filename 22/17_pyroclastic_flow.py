@@ -3,8 +3,13 @@
 
 import sys
 import math
+from collections import defaultdict
 from enum import Enum
 from itertools import cycle
+
+X_MIN = 0
+X_MAX = 6
+Y_MIN = 0
 
 
 class Dir(Enum):
@@ -29,12 +34,19 @@ class Shape(Enum):
         self.dim = dim
         self.max_x = max(p[0] for l in self.dim for p in l)
         self.max_y = max(p[1] for l in self.dim for p in l)
+        self.max_y_x = self.get_max_y_x()
+
+    def get_max_y_x(self):
+        max_y_x = defaultdict(lambda: -1)
+        for l in self.dim:
+            for x in range(l[0][0], l[1][0] + 1):
+                for y in range(l[0][1], l[1][1] + 1):
+                    if max_y_x[x] < y:
+                        max_y_x[x] = y
+        return max_y_x
 
 
 class Rock:
-    X_MIN = 0
-    X_MAX = 6
-
     def __init__(self, shape, pos):
         self.shape = shape
         self.pos = pos
@@ -42,7 +54,7 @@ class Rock:
     def move(self, dir, rocks):
         new_x = self.pos[0] + dir.value[0]
         new_y = self.pos[1] + dir.value[1]
-        if new_y < 0 or new_x < 0 or new_x + self.shape.max_x > self.X_MAX or self.intersects(new_x, new_y, rocks):
+        if new_y < Y_MIN or new_x < X_MIN or new_x + self.shape.max_x > X_MAX or self.intersects(new_x, new_y, rocks):
             return False
         else:
             self.pos = (new_x, new_y)
@@ -137,6 +149,13 @@ class Rock:
     def max_y(self):
         return self.pos[1] + self.shape.max_y
 
+    @property
+    def max_y_x(self):
+        d = {}
+        for x, y in self.shape.max_y_x.items():
+            d[x + self.pos[0]] = y + self.pos[1]
+        return d
+
     def __str__(self):
         return f"{str(self.shape)}, {str(self.pos)}"
 
@@ -144,6 +163,18 @@ class Rock:
 def read(filename):
     with open(filename, "r") as reader:
         return [Dir.from_char(c) for c in reader.readline().strip()]
+
+
+def get_relief(rocks):
+    relief = {x: -1 for x in range(X_MIN, X_MAX + 1)}
+    for rock in rocks:
+        for x, y in rock.max_y_x.items():
+            if relief[x] < y:
+                relief[x] = y
+    y_top = max(relief.values())
+    for x in relief.keys():
+        relief[x] -= y_top
+    return relief
 
 
 if __name__ == "__main__":
@@ -159,25 +190,51 @@ if __name__ == "__main__":
 
     jet_directions = input
 
-    MAX_N_ROCKS = 2022
+    # MAX_N_ROCKS = 2022
+    MAX_N_ROCKS = 1_000_000_000_000
     X_L_START = 2
     Y_GAP_START = 4
 
-    directions = cycle(jet_directions)
+    n = 0
+    directions = cycle(enumerate(jet_directions))
     rocks = []
+    hashes = []
+    idx_repeated = -1
     for shape in cycle(Shape):
         rock = Rock(shape, (X_L_START, max([rock.max_y for rock in rocks], default=-1) + Y_GAP_START))
+        i, dir = next(directions)
+        relief = get_relief(rocks)
+        hsh = hash((i, rock.shape, frozenset(relief.items())))
+        if hsh in hashes:
+            idx_repeated = hashes.index(hsh)
+            break
+        hashes.append(hsh)
         while True:
-            dir = next(directions)
             rock.move(dir, rocks)
             if not rock.move(Dir.D, rocks):
                 break
+            i, dir = next(directions)
         rocks.append(rock)
-        n = len(rocks)
+        # rocks.insert(0, rock)
+        rocks = rocks[:2500]
+        n += 1
         if n % math.ceil(MAX_N_ROCKS / 100) == 0:
             print(f"{round(n / MAX_N_ROCKS * 100)}%", end="\r", flush=True)
         if n == MAX_N_ROCKS:
             break
 
     print()
-    print(max([rock.max_y for rock in rocks]) + 1)
+    if idx_repeated == -1:
+        height_end = max([rock.max_y for rock in rocks]) + 1
+        print(height_end)
+    else:
+        idx_diff = n - idx_repeated
+        height_start = max([rock.max_y for rock in rocks[:idx_repeated]]) + 1
+        height_end = max([rock.max_y for rock in rocks]) + 1
+        height_diff = height_end - height_start
+        n_repeat = (MAX_N_ROCKS - idx_repeated) // idx_diff
+        n_missing = (MAX_N_ROCKS - idx_repeated) % idx_diff
+        height_missing_full = max([rock.max_y for rock in rocks[: n_missing + idx_repeated]]) + 1
+        height_missing = height_missing_full - height_start
+        height_total = height_start + height_diff * n_repeat + height_missing
+        print(height_total)
