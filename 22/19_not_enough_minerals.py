@@ -3,6 +3,7 @@
 
 import sys
 import re
+import math
 from enum import Enum, auto
 from typing import NamedTuple, Optional
 from collections import deque
@@ -10,10 +11,10 @@ from copy import copy
 
 
 class Material(Enum):
-    ORE = auto()
-    CLAY = auto()
-    OBSIDIAN = auto()
     GEODE = auto()
+    OBSIDIAN = auto()
+    CLAY = auto()
+    ORE = auto()
 
 
 class Robot(NamedTuple):
@@ -23,11 +24,16 @@ class Robot(NamedTuple):
 class Blueprint(NamedTuple):
     id: int
     robots: dict[Material, Robot]
+    max_expenses: dict[Material, int]
 
-    def affordable_robot_types(self, inventory: dict[Material, int]) -> list[Material]:
-        for material in reversed(Material):
+    def affordable_robot_types(self, inventory: dict[Material, int], max_n: int = -1) -> list[Material]:
+        materials = []
+        for material in Material:
             if all(inventory[k] >= v for k, v in self.robots[material].requires.items()):
-                yield material
+                materials.append(material)
+                if max_n != -1 and len(materials) == max_n:
+                    return materials
+        return materials
 
 
 def read(filename: str) -> list[Blueprint]:
@@ -40,35 +46,51 @@ def read(filename: str) -> list[Blueprint]:
                 Material.OBSIDIAN: Robot({Material.ORE: numbers[3], Material.CLAY: numbers[4]}),
                 Material.GEODE: Robot({Material.ORE: numbers[5], Material.OBSIDIAN: numbers[6]}),
             }
-            yield Blueprint(numbers[0], robots)
+            max_ore = max(robot.requires[Material.ORE] for robot in robots.values())
+            max_clay = numbers[4]
+            max_obsidian = numbers[6]
+            yield Blueprint(
+                numbers[0],
+                robots,
+                {
+                    Material.ORE: max_ore,
+                    Material.CLAY: max_clay,
+                    Material.OBSIDIAN: max_obsidian,
+                    Material.GEODE: math.inf,
+                },
+            )
 
 
 def bfs(
     blueprint: Blueprint, T: int, init_robots: dict[Material, int], init_inventory: dict[Material, int]
 ) -> list[int]:
-    queue = deque([(T, init_robots, init_inventory)])
-    i = 0
+    queue = deque([(0, init_robots, init_inventory)])
+    # i = 0
     while queue:
         t, robots, inventory = queue.popleft()
-        i += 1
-        if i % 10000 == 0:
-            print(t, robots, inventory)
-        affordable_robot_types = list(blueprint.affordable_robot_types(inventory))[:2]
+        # i += 1
+        # if i % 10000 == 0:
+        #     print(len(queue), t, robots, inventory)
+        affordable_robot_types = blueprint.affordable_robot_types(inventory, max_n=2)
         for material, n in robots.items():
             inventory[material] += n
-        t -= 1
-        if t == 0:
+        t += 1
+        if t == T:
+            # if inventory[Material.GEODE] == 12:
+            #     print(t, robots, inventory)
             yield inventory[Material.GEODE]
             continue
-        # if not affordable_robot_types:
-        queue.append((t, copy(robots), copy(inventory)))
+        if not Material.GEODE in affordable_robot_types:
+            queue.append((t, copy(robots), copy(inventory)))
         for type in affordable_robot_types:
+            if robots[type] >= blueprint.max_expenses[type]:
+                continue
             new_robots = copy(robots)
             new_robots[type] += 1
             new_inventory = copy(inventory)
             for material, n in blueprint.robots[type].requires.items():
                 new_inventory[material] -= n
-            queue.append((t, new_robots, copy(new_inventory)))
+            queue.append((t, new_robots, new_inventory))
 
 
 if __name__ == "__main__":
@@ -89,6 +111,9 @@ if __name__ == "__main__":
     robots[Material.ORE] += 1
     inventory: dict[Material, int] = {material: 0 for material in Material}
 
-    for blueprint in blueprints[:1]:
-        n_geodes = max(bfs(blueprint, T, robots, inventory))
+    quality_levels = []
+    for blueprint in blueprints:
+        n_geodes = max(bfs(blueprint, T, copy(robots), copy(inventory)))
         print(blueprint.id, n_geodes)
+        quality_levels.append(blueprint.id * n_geodes)
+    print(sum(quality_levels))
