@@ -51,12 +51,12 @@ def read(filename: str) -> list[Blueprint]:
             )
 
 
-def bfs(blueprint: Blueprint, T: int, init_robots: tuple[int], init_inventory: tuple[int]) -> int:
+def dfs(blueprint: Blueprint, T: int, init_robots: tuple[int], init_inventory: tuple[int]) -> int:
     best_state = (None, None, (0,) * len(Material))
-    queue = deque([(0, init_robots, init_inventory)])
+    stack = [(0, init_robots, init_inventory)]
     j = 0
-    while queue:
-        t, robots, inventory = queue.popleft()
+    while stack:
+        t, robots, inventory = stack.pop()
         j += 1
         if j % 100000 == 0:
             print(best_state)
@@ -64,27 +64,30 @@ def bfs(blueprint: Blueprint, T: int, init_robots: tuple[int], init_inventory: t
         if Material.GEODE in affordable_robot_types:
             affordable_robot_types = (Material.GEODE,)
         for i, n in enumerate(robots):
-            inventory = update(inventory, i, inventory[i] + n)
+            if n != 0:
+                inventory = update(inventory, i, inventory[i] + n)
+        t += 1
         if best_state[2][Material.GEODE.value] < inventory[Material.GEODE.value]:
             best_state = (t, robots, inventory)
-        t += 1
         if t == T:
             continue
         if not Material.GEODE in affordable_robot_types:
             state = (t, robots, inventory)
             max_geodes = calc_max_geodes(T, *state)
             if max_geodes > best_state[2][Material.GEODE.value]:
-                queue.append(state)
+                stack.append(state)
         for type in affordable_robot_types:
             if robots[type.value] >= blueprint.max_expenses[type.value]:
                 continue
-            robots = update(robots, type.value, robots[type.value] + 1)
+            new_robots = update(robots, type.value, robots[type.value] + 1)
+            new_inventory = tuple(inventory)
             for i, n in enumerate(blueprint.robots[type.value]):
-                inventory = update(inventory, i, inventory[i] - n)
-            state = (t, robots, inventory)
+                if n != 0:
+                    new_inventory = update(new_inventory, i, inventory[i] - n)
+            state = (t, new_robots, new_inventory)
             max_geodes = calc_max_geodes(T, *state)
             if max_geodes > best_state[2][Material.GEODE.value]:
-                queue.append(state)
+                stack.append(state)
     print(best_state)
     return best_state[2][Material.GEODE.value]
 
@@ -97,7 +100,7 @@ def update(t: tuple, i: int, v):
 
 def calc_max_geodes(T, t, robots, inventory):
     t_rem = T - t
-    return inventory[Material.GEODE.value] + t_rem * robots[Material.GEODE.value] + sum(range(t_rem + 1))
+    return inventory[Material.GEODE.value] + t_rem * robots[Material.GEODE.value] + sum(range(t_rem))
 
 
 if __name__ == "__main__":
@@ -119,7 +122,7 @@ if __name__ == "__main__":
 
     quality_levels = []
     for blueprint in blueprints:
-        n_geodes = bfs(blueprint, T, robots, inventory)
+        n_geodes = dfs(blueprint, T, robots, inventory)
         print(blueprint.id, n_geodes)
         quality_levels.append(blueprint.id * n_geodes)
     print(sum(quality_levels))
