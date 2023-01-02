@@ -6,7 +6,6 @@ import re
 import math
 from enum import Enum
 from typing import NamedTuple
-from collections import deque
 from functools import cache
 
 
@@ -58,7 +57,7 @@ def dfs(blueprint: Blueprint, T: int, init_robots: tuple[int], init_inventory: t
     while stack:
         t, robots, inventory = stack.pop()
         j += 1
-        if j % 100000 == 0:
+        if j % 1000000 == 0:
             print(best_state)
         affordable_robot_types = blueprint.affordable_robot_types(inventory)
         if Material.GEODE in affordable_robot_types:
@@ -103,6 +102,15 @@ def calc_max_geodes(T, t, robots, inventory):
     return inventory[Material.GEODE.value] + t_rem * robots[Material.GEODE.value] + sum(range(t_rem))
 
 
+def solve(blueprints, T, robots, inventory):
+    result = []
+    for blueprint in blueprints:
+        n_geodes = dfs(blueprint, T, robots, inventory)
+        print(blueprint.id, n_geodes)
+        result.append(n_geodes)
+    return result
+
+
 if __name__ == "__main__":
     args: list[str] = sys.argv[1:]
     test: bool = False
@@ -116,13 +124,14 @@ if __name__ == "__main__":
 
     blueprints: list[Blueprint] = list(input)
 
-    T: int = 24
     robots: tuple[int] = (1, 0, 0, 0)
     inventory: tuple[int] = (0,) * len(Material)
 
-    quality_levels = []
-    for blueprint in blueprints:
-        n_geodes = dfs(blueprint, T, robots, inventory)
-        print(blueprint.id, n_geodes)
-        quality_levels.append(blueprint.id * n_geodes)
+    T: int = 24
+    n_geodes = solve(blueprints, T, robots, inventory)
+    quality_levels = [b.id * n for b, n in zip(blueprints, n_geodes)]
     print(sum(quality_levels))
+
+    T: int = 32
+    n_geodes = solve(blueprints[:3], T, robots, inventory)
+    print(math.prod(n_geodes))
