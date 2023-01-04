@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from typing import Optional, Any
+from typing import Optional, Generator, Any
 import operator
 import re
 
@@ -10,11 +10,13 @@ OPS: dict[str, Any] = {"+": operator.add, "-": operator.sub, "*": operator.mul, 
 
 
 class Monkey:
-    def __init__(self, name: str, deps: Optional[list[str]] = None, op: Optional[Any] = None, num: int = 0) -> None:
-        self.name = name
-        self.deps = deps
-        self.op = op
-        self.num = num
+    def __init__(
+        self, name: str, deps: Optional[tuple[str, str]] = None, op: Optional[Any] = None, num: int = 0
+    ) -> None:
+        self.name: str = name
+        self.deps: Optional[tuple[str, str]] = deps
+        self.op: Optional[Any] = op
+        self.num: int = num
 
     def __str__(self) -> str:
         if self.deps:
@@ -24,15 +26,22 @@ class Monkey:
             return f"{self.name}: {self.num}"
 
 
-def read(filename: str) -> list[Monkey]:
+def read(filename: str) -> Generator[tuple[str, Monkey], None, None]:
     with open(filename, "r") as reader:
         for line in reader:
             res = re.search(r"([a-z]{4}): (\d+)", line.strip())
             if res is not None:
-                yield Monkey(res.group(1), num=res.group(2))
+                yield res.group(1), Monkey(res.group(1), num=int(res.group(2)))
             else:
                 res = re.search(r"([a-z]{4}): ([a-z]{4}) (.) ([a-z]{4})", line.strip())
-                yield Monkey(res.group(1), deps=[res.group(2), res.group(4)], op=OPS[res.group(3)])
+                yield res.group(1), Monkey(res.group(1), deps=(res.group(2), res.group(4)), op=OPS[res.group(3)])
+
+
+def calc(monkeys: dict[str, Monkey], m: Monkey) -> int:
+    if m.deps:
+        return int(m.op(calc(monkeys, monkeys[m.deps[0]]), calc(monkeys, monkeys[m.deps[1]])))
+    else:
+        return m.num
 
 
 if __name__ == "__main__":
@@ -46,6 +55,5 @@ if __name__ == "__main__":
     else:
         input = read("input/21.txt")
 
-    monkeys: list[Monkey] = list(input)
-    for monkey in monkeys:
-        print(monkey)
+    monkeys: dict[str, Monkey] = dict(input)
+    print(calc(monkeys, monkeys["root"]))
