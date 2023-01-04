@@ -76,7 +76,7 @@ if __name__ == "__main__":
     root = "root"
     me = "humn"
 
-    x = None
+    x: Optional[int] = None
     while root != me:
         m_with, m_without = find_monkey_branches_with_and_without(monkeys, root, me)
         rhs = True if monkeys[root].deps.index(m_without) == 1 else False
