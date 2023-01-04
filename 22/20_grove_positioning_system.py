@@ -11,27 +11,35 @@ def read(filename: str) -> list[int]:
             yield int(line.strip())
 
 
-def solve(data, test):
-    L = len(data)
-    moved: list[bool] = [False] * L
-    while not all(moved):
+def solve(L: int, data: list[int], order: list[int], test: bool) -> None:
+    for i in range(L):
         if test:
             print(data)
-        idx = moved.index(False)
+        idx = order.index(i)
         d = data[idx] % (L - 1)
         new_idx = idx + d + 1
         if new_idx > L:
             new_idx -= L
         data.insert(new_idx, data[idx])
-        moved.insert(new_idx, True)
+        order.insert(new_idx, i)
         if new_idx <= idx:
             del data[idx + 1]
-            del moved[idx + 1]
+            del order[idx + 1]
         else:
             del data[idx]
-            del moved[idx]
+            del order[idx]
     if test:
         print(data)
+
+
+def get_coords(L: int, data: list[int], idx_coords: list[int]) -> list[int]:
+    idx_zero = data.index(0)
+    for idx_coord in idx_coords:
+        idx_dist = idx_coord % L
+        idx = idx_zero + idx_dist
+        if idx > L - 1:
+            idx -= L
+        yield data[idx]
 
 
 if __name__ == "__main__":
@@ -48,27 +56,20 @@ if __name__ == "__main__":
     data: list[int] = list(input)
     data2: list[int] = copy(data)
     L = len(data)
-
-    # data = [3, 1, 0]
-    # data = [0, -1, -1, 1]
-    # L = len(data)
-    # moved: list[bool] = [False] * L
+    idx_coords = [1000, 2000, 3000]
 
     # Part 1
-    solve(data, test)
-    idx_zero = data.index(0)
-    idx_coords = [1000, 2000, 3000]
-    coords = []
-    for idx_coord in idx_coords:
-        idx_dist = idx_coord % L
-        idx = idx_zero + idx_dist
-        if idx > L - 1:
-            idx -= L
-        coords.append(data[idx])
+    order: list[int] = list(range(L))
+    solve(L, data, order, test)
+    coords = list(get_coords(L, data, idx_coords))
     print(coords)
     print(sum(coords))
 
     # Part 2
-    # data2 = [n * 811589153 for n in data2]
-    # L = len(data2)
-    # for i in range(10):
+    data2 = [n * 811589153 for n in data2]
+    order: list[int] = list(range(L))
+    for i in range(10):
+        solve(L, data2, order, test)
+    coords = list(get_coords(L, data2, idx_coords))
+    print(coords)
+    print(sum(coords))
