@@ -7,6 +7,12 @@ import operator
 import re
 
 OPS: dict[str, Any] = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+OPS_OPP: dict[Any, Any] = {
+    operator.sub: operator.add,
+    operator.add: operator.sub,
+    operator.truediv: operator.mul,
+    operator.mul: operator.truediv,
+}
 
 
 class Monkey:
@@ -44,6 +50,15 @@ def calc(monkeys: dict[str, Monkey], m: Monkey) -> int:
         return m.num
 
 
+def find_monkey_branches_with_and_without(monkeys: dict[str, Monkey], root: str, curr: str) -> tuple[str, str]:
+    while curr not in monkeys[root].deps:
+        for m in monkeys.values():
+            if m.deps and curr in m.deps:
+                curr = m.name
+                break
+    return curr, next(name for name in monkeys[root].deps if name != curr)
+
+
 if __name__ == "__main__":
     args: list[str] = sys.argv[1:]
     test: bool = False
@@ -57,3 +72,21 @@ if __name__ == "__main__":
 
     monkeys: dict[str, Monkey] = dict(input)
     print(calc(monkeys, monkeys["root"]))
+
+    root = "root"
+    me = "humn"
+
+    x = None
+    while root != me:
+        m_with, m_without = find_monkey_branches_with_and_without(monkeys, root, me)
+        rhs = True if monkeys[root].deps.index(m_without) == 1 else False
+        other_branch_value = calc(monkeys, monkeys[m_without])
+        if x is not None:
+            if rhs or monkeys[root].op in (operator.add, operator.mul):
+                x = int(OPS_OPP[monkeys[root].op](x, other_branch_value))
+            else:
+                x = int(monkeys[root].op(other_branch_value, x))
+        else:
+            x = other_branch_value
+        root = m_with
+    print(x)
