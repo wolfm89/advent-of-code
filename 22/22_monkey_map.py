@@ -11,9 +11,9 @@ from itertools import product
 
 @dataclass(frozen=True)
 class Vec:
-    x: float = 0
-    y: float = 0
-    z: float = 0
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
 
     @property
     def len(self):
@@ -40,6 +40,9 @@ class Vec:
             self.x * other.y - self.y * other.x,
         )
 
+    def __truediv__(self, f: float) -> Vec:
+        return Vec(self.x / f, self.y / f, self.z / f)
+
     def __matmul__(self, other: Vec) -> float:
         return self.x * other.x + self.y * other.y + self.z * other.z
 
@@ -54,11 +57,11 @@ class Matrix:
         return Vec(*[vec @ other for vec in self.rows])
 
 
-X = Vec(x=1)
-Y = Vec(y=1)
-Z = Vec(z=1)
-ZERO = Vec(0, 0, 0)
-ONE = Vec(1, 1, 1)
+X = Vec(x=1.0)
+Y = Vec(y=1.0)
+Z = Vec(z=1.0)
+ZERO = Vec(0.0, 0.0, 0.0)
+ONE = Vec(1.0, 1.0, 1.0)
 
 NO_X = Matrix([ZERO, Y, Z])
 NO_Y = Matrix([X, ZERO, Z])
@@ -85,9 +88,15 @@ ROT = {
 
 class Area:
     def __init__(
-        self, pos: Vec, map: list[str], facing: Vec = Z, neighbors: list[Area] = None, edges: list[Area] = None
+        self,
+        pos_lu: Vec,
+        map: list[str],
+        facing: Vec = Z,
+        neighbors: list[Area] = None,
+        edges: list[Area] = None,
     ) -> None:
-        self.pos = pos
+        self.pos_lu = pos_lu
+        self.pos_rd = pos_lu + X + Y
         self.map = map
         self.facing = facing
         self.neighbors = neighbors if neighbors is not None else list()
@@ -133,18 +142,18 @@ def plot(map: tuple[list[str]], pos: Optional[tuple[int, int]] = None) -> None:
 
 def set_neighbors(areas: list[Area]) -> None:
     for area in areas:
-        n = next((a for a in areas if Vec(area.pos.x + 1, area.pos.y, 0) == a.pos), None)
+        n = next((a for a in areas if Vec(area.pos_lu.x + 1, area.pos_lu.y, 0) == a.pos_lu), None)
         if n is not None:
             area.neighbors.append(n)
             n.neighbors.append(area)
-        n = next((a for a in areas if Vec(area.pos.x, area.pos.y + 1, 0) == a.pos), None)
+        n = next((a for a in areas if Vec(area.pos_lu.x, area.pos_lu.y + 1, 0) == a.pos_lu), None)
         if n is not None:
             area.neighbors.append(n)
             n.neighbors.append(area)
 
 
 def set_edges(areas: list[Area]) -> None:
-    initial_pos = areas[0].pos
+    initial_pos = (areas[0].pos_lu + areas[0].pos_rd) / 2.0
     skip_first = True
     for a, area in trace_neighbors(areas[0], None):
         a: Area
@@ -152,16 +161,16 @@ def set_edges(areas: list[Area]) -> None:
         if skip_first:
             skip_first = False
             continue
-        if abs(area.pos.x - a.pos.x) == 1:
-            x = (area.pos.x + a.pos.x) / 2
+        if abs(area.pos_lu.x - a.pos_lu.x) == 1.0:
+            x = area.pos_lu.x if area.pos_lu.x - a.pos_lu.x == 1.0 else a.pos_lu.x
             facing = Y if x > initial_pos.x else -Y
-            edge = Edge(Vec(x, area.pos.y, 0), facing, [area, a])
+            edge = Edge(Vec(x, area.pos_lu.y + 0.5, 0.0), facing, [area, a])
             area.edges.append(edge)
             a.edges.append(edge)
-        if abs(area.pos.y - a.pos.y) == 1:
-            y = (area.pos.y + a.pos.y) / 2
+        if abs(area.pos_lu.y - a.pos_lu.y) == 1.0:
+            y = area.pos_lu.y if area.pos_lu.y - a.pos_lu.y == 1.0 else a.pos_lu.y
             facing = X if y < initial_pos.y else -X
-            edge = Edge(Vec(area.pos.x, y, 0), facing, [area, a])
+            edge = Edge(Vec(area.pos_lu.x + 0.5, y, 0.0), facing, [area, a])
             area.edges.append(edge)
             a.edges.append(edge)
 
@@ -169,7 +178,7 @@ def set_edges(areas: list[Area]) -> None:
 def read_areas(l: int, map: list[str]) -> Iterator[Area]:
     for i, j in product(range(0, len(map), l), range(0, len(map[0]), l)):
         if map[i][j] != " ":
-            yield Area(Vec(i // l + 0.5, j // l + 0.5, 0), [line[j : j + l] for line in map[i : i + l]])
+            yield Area(Vec(float(i // l), float(j // l), 0.0), [line[j : j + l] for line in map[i : i + l]])
 
 
 def trace_neighbors(start: Area, from_area: Area) -> Iterator[tuple[Area, Area]]:
@@ -179,7 +188,7 @@ def trace_neighbors(start: Area, from_area: Area) -> Iterator[tuple[Area, Area]]
             yield from trace_neighbors(n, start)
 
 
-def trace_edges(start: Area, from_area: Area) -> Iterator[Area]:
+def trace_edges(start: Area, from_area: Area) -> Iterator[Edge]:
     for e in start.edges:
         if from_area is None or e not in from_area.edges:
             yield e
@@ -245,19 +254,20 @@ if __name__ == "__main__":
     areas: list[Area] = list(read_areas(L, map))
     set_neighbors(areas)
     set_edges(areas)
-    all_edges: list[Area] = list(trace_edges(areas[0], None))
+    all_edges: list[Edge] = list(trace_edges(areas[0], None))
 
     # Fold cube
     for i in range(len(all_edges)):
-        edge: Area = all_edges[i]
+        edge = all_edges[i]
         i_not_0 = next(j for j, v in enumerate(edge.facing) if v != 0.0)
         diff = NO[i_not_0] @ edge.pos
         for area, _ in trace_neighbors(edge.neighbors[1], edge.neighbors[0]):
             area.facing = ROT[edge.facing] @ area.facing
-            area.pos = ROT[edge.facing] @ (area.pos - diff) + diff
+            area.pos_lu = ROT[edge.facing] @ (area.pos_lu - diff) + diff
+            area.pos_rd = ROT[edge.facing] @ (area.pos_rd - diff) + diff
         for e in trace_edges(edge.neighbors[1], edge.neighbors[0]):
             e.facing = ROT[edge.facing] @ e.facing
             e.pos = ROT[edge.facing] @ (e.pos - diff) + diff
 
     for area in areas:
-        print(f"{area.pos}: {area.facing}")
+        print(f"{area.pos_lu}, {area.pos_rd}: {area.facing}")
