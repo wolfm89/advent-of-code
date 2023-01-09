@@ -144,6 +144,7 @@ def set_neighbors(areas: list[Area]) -> None:
 
 
 def set_edges(areas: list[Area]) -> None:
+    initial_pos = areas[0].pos
     skip_first = True
     for a, area in trace_neighbors(areas[0], None):
         a: Area
@@ -152,11 +153,15 @@ def set_edges(areas: list[Area]) -> None:
             skip_first = False
             continue
         if abs(area.pos.x - a.pos.x) == 1:
-            edge = Edge(Vec((area.pos.x + a.pos.x) / 2, area.pos.y, 0), Y, [area, a])
+            x = (area.pos.x + a.pos.x) / 2
+            facing = Y if x > initial_pos.x else -Y
+            edge = Edge(Vec(x, area.pos.y, 0), facing, [area, a])
             area.edges.append(edge)
             a.edges.append(edge)
         if abs(area.pos.y - a.pos.y) == 1:
-            edge = Edge(Vec(area.pos.x, (area.pos.y + a.pos.y) / 2, 0), X, [area, a])
+            y = (area.pos.y + a.pos.y) / 2
+            facing = X if y < initial_pos.y else -X
+            edge = Edge(Vec(area.pos.x, y, 0), facing, [area, a])
             area.edges.append(edge)
             a.edges.append(edge)
 
@@ -181,11 +186,6 @@ def trace_edges(start: Area, from_area: Area) -> Iterator[Area]:
     for n in start.neighbors:
         if n != from_area:
             yield from trace_edges(n, start)
-
-
-def sort_areas(areas: list[Area]) -> Iterator[Area]:
-    start = next(a for a in areas if len(a.neighbors) == 1)
-    return (t[0] for t in trace_neighbors(start, None))
 
 
 if __name__ == "__main__":
@@ -241,11 +241,13 @@ if __name__ == "__main__":
     password = 1000 * (pos[0] + 1) + 4 * (pos[1] + 1) + d[dir]
     print(password)
 
+    # Create cube faces and edges
     areas: list[Area] = list(read_areas(L, map))
     set_neighbors(areas)
-    areas = list(sort_areas(areas))
     set_edges(areas)
     all_edges: list[Area] = list(trace_edges(areas[0], None))
+
+    # Fold cube
     for i in range(len(all_edges)):
         edge: Area = all_edges[i]
         i_not_0 = next(j for j, v in enumerate(edge.facing) if v != 0.0)
