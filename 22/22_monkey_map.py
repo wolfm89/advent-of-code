@@ -1,9 +1,104 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
 import sys
-from typing import Union, Optional
+from typing import Union, Optional, Iterator
 import re
+from dataclasses import dataclass
+from itertools import product
+
+
+@dataclass(frozen=True)
+class Vec:
+    x: float = 0
+    y: float = 0
+    z: float = 0
+
+    @property
+    def len(self):
+        return 3
+
+    def __iter__(self) -> Iterator[float]:
+        yield self.x
+        yield self.y
+        yield self.z
+
+    def __add__(self, other: Vec) -> Vec:
+        return Vec(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: Vec) -> Vec:
+        return Vec(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __neg__(self) -> Vec:
+        return Vec(-self.x, -self.y, -self.z)
+
+    def __mul__(self, other: Vec) -> Vec:
+        return Vec(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x,
+        )
+
+    def __matmul__(self, other: Vec) -> float:
+        return self.x * other.x + self.y * other.y + self.z * other.z
+
+
+@dataclass(frozen=True)
+class Matrix:
+    rows: list[Vec]
+
+    def __matmul__(self, other: Vec) -> Vec:
+        if self.rows[0].len != other.len:
+            raise ValueError()
+        return Vec(*[vec @ other for vec in self.rows])
+
+
+X = Vec(x=1)
+Y = Vec(y=1)
+Z = Vec(z=1)
+ZERO = Vec(0, 0, 0)
+ONE = Vec(1, 1, 1)
+
+NO_X = Matrix([ZERO, Y, Z])
+NO_Y = Matrix([X, ZERO, Z])
+NO_Z = Matrix([X, Y, ZERO])
+
+NO = (NO_X, NO_Y, NO_Z)
+
+ROT_X_CCW = Matrix([X, -Z, Y])
+ROT_X_CW = Matrix([X, Z, -Y])
+ROT_Y_CCW = Matrix([Z, Y, -X])
+ROT_Y_CW = Matrix([-Z, Y, X])
+ROT_Z_CCW = Matrix([-Y, X, Z])
+ROT_Z_CW = Matrix([Y, -X, Z])
+
+ROT = {
+    X: ROT_X_CCW,
+    -X: ROT_X_CW,
+    Y: ROT_Y_CCW,
+    -Y: ROT_Y_CW,
+    Z: ROT_Z_CCW,
+    -Z: ROT_Z_CW,
+}
+
+
+class Area:
+    def __init__(
+        self, pos: Vec, map: list[str], facing: Vec = Z, neighbors: list[Area] = None, edges: list[Area] = None
+    ) -> None:
+        self.pos = pos
+        self.map = map
+        self.facing = facing
+        self.neighbors = neighbors if neighbors is not None else list()
+        self.edges = edges if edges is not None else list()
+
+
+class Edge:
+    def __init__(self, pos: Vec, facing: Vec, neighbors: list[Area] = None) -> None:
+        self.pos = pos
+        self.facing = facing
+        self.neighbors = neighbors if neighbors is not None else list()
 
 
 def read(filename: str) -> tuple[list[str], list[Union[int, str]]]:
@@ -36,6 +131,63 @@ def plot(map: tuple[list[str]], pos: Optional[tuple[int, int]] = None) -> None:
     print()
 
 
+def set_neighbors(areas: list[Area]) -> None:
+    for area in areas:
+        n = next((a for a in areas if Vec(area.pos.x + 1, area.pos.y, 0) == a.pos), None)
+        if n is not None:
+            area.neighbors.append(n)
+            n.neighbors.append(area)
+        n = next((a for a in areas if Vec(area.pos.x, area.pos.y + 1, 0) == a.pos), None)
+        if n is not None:
+            area.neighbors.append(n)
+            n.neighbors.append(area)
+
+
+def set_edges(areas: list[Area]) -> None:
+    skip_first = True
+    for a, area in trace_neighbors(areas[0], None):
+        a: Area
+        area: Area
+        if skip_first:
+            skip_first = False
+            continue
+        if abs(area.pos.x - a.pos.x) == 1:
+            edge = Edge(Vec((area.pos.x + a.pos.x) / 2, area.pos.y, 0), Y, [area, a])
+            area.edges.append(edge)
+            a.edges.append(edge)
+        if abs(area.pos.y - a.pos.y) == 1:
+            edge = Edge(Vec(area.pos.x, (area.pos.y + a.pos.y) / 2, 0), X, [area, a])
+            area.edges.append(edge)
+            a.edges.append(edge)
+
+
+def read_areas(l: int, map: list[str]) -> Iterator[Area]:
+    for i, j in product(range(0, len(map), l), range(0, len(map[0]), l)):
+        if map[i][j] != " ":
+            yield Area(Vec(i // l + 0.5, j // l + 0.5, 0), [line[j : j + l] for line in map[i : i + l]])
+
+
+def trace_neighbors(start: Area, from_area: Area) -> Iterator[tuple[Area, Area]]:
+    yield start, from_area
+    for n in start.neighbors:
+        if n != from_area:
+            yield from trace_neighbors(n, start)
+
+
+def trace_edges(start: Area, from_area: Area) -> Iterator[Area]:
+    for e in start.edges:
+        if from_area is None or e not in from_area.edges:
+            yield e
+    for n in start.neighbors:
+        if n != from_area:
+            yield from trace_edges(n, start)
+
+
+def sort_areas(areas: list[Area]) -> Iterator[Area]:
+    start = next(a for a in areas if len(a.neighbors) == 1)
+    return (t[0] for t in trace_neighbors(start, None))
+
+
 if __name__ == "__main__":
     args: list[str] = sys.argv[1:]
     test: bool = False
@@ -44,8 +196,10 @@ if __name__ == "__main__":
 
     if test:
         input = read("input/22_test.txt")
+        L = 4
     else:
         input = read("input/22.txt")
+        L = 50
 
     map, cmds = input
 
@@ -86,3 +240,22 @@ if __name__ == "__main__":
     d = {(0, 1): 0, (1, 0): 1, (0, -1): 2, (-1, 0): 3}
     password = 1000 * (pos[0] + 1) + 4 * (pos[1] + 1) + d[dir]
     print(password)
+
+    areas: list[Area] = list(read_areas(L, map))
+    set_neighbors(areas)
+    areas = list(sort_areas(areas))
+    set_edges(areas)
+    all_edges: list[Area] = list(trace_edges(areas[0], None))
+    for i in range(len(all_edges)):
+        edge: Area = all_edges[i]
+        i_not_0 = next(j for j, v in enumerate(edge.facing) if v != 0.0)
+        diff = NO[i_not_0] @ edge.pos
+        for area, _ in trace_neighbors(edge.neighbors[1], edge.neighbors[0]):
+            area.facing = ROT[edge.facing] @ area.facing
+            area.pos = ROT[edge.facing] @ (area.pos - diff) + diff
+        for e in trace_edges(edge.neighbors[1], edge.neighbors[0]):
+            e.facing = ROT[edge.facing] @ e.facing
+            e.pos = ROT[edge.facing] @ (e.pos - diff) + diff
+
+    for area in areas:
+        print(f"{area.pos}: {area.facing}")
