@@ -6,7 +6,7 @@ import sys
 import operator
 from typing import Union, Optional, Iterator, Any
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
 
 
@@ -90,28 +90,48 @@ ROT = {
 }
 
 
+@dataclass
 class Area:
-    def __init__(
-        self,
-        pos_lu: Vec,
-        map: list[str],
-        facing: Vec = Z,
-        neighbors: list[Area] = None,
-        edges: list[Area] = None,
-    ) -> None:
-        self.pos_lu = pos_lu
-        self.pos_rd = pos_lu + X + Y
-        self.map = map
-        self.facing = facing
-        self.neighbors = neighbors if neighbors is not None else list()
-        self.edges = edges if edges is not None else list()
+    pos_lu: Vec
+    map: list[str]
+    pos_rd: Vec = field(init=False)
+    facing: Vec = Z
+    neighbors: list[Area] = field(default_factory=list)
+    edges: list[Area] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.pos_rd = self.pos_lu + X + Y
+
+    @property
+    def center(self) -> Vec:
+        return (self.pos_lu + self.pos_rd) / 2
+
+    @property
+    def pos_ru(self) -> Vec:
+        return self.__rot_lu(3)
+
+    @property
+    def pos_ld(self) -> Vec:
+        return self.__rot_lu()
+
+    def __rot_lu(self, n: int = 1) -> Vec:
+        i_not_0 = self.facing.index(0.0, operator.ne)
+        diff = NO[i_not_0] @ self.center
+        p = self.pos_lu
+        for _ in range(n):
+            p = ROT[self.facing] @ (p - diff) + diff
+        return p
+
+    @property
+    def corners(self) -> tuple[Vec]:
+        return (self.pos_lu, self.pos_ld, self.pos_rd, self.pos_ru)
 
 
+@dataclass
 class Edge:
-    def __init__(self, pos: Vec, facing: Vec, neighbors: list[Area] = None) -> None:
-        self.pos = pos
-        self.facing = facing
-        self.neighbors = neighbors if neighbors is not None else list()
+    pos: Vec
+    facing: Vec
+    neighbors: list[Area] = field(default_factory=list)
 
 
 def read(filename: str) -> tuple[list[str], list[Union[int, str]]]:
