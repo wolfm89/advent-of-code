@@ -7,7 +7,7 @@ import operator
 from typing import Union, Optional, Iterator, Any
 import re
 from dataclasses import dataclass, field
-from itertools import product
+from itertools import product, cycle
 
 
 @dataclass(frozen=True)
@@ -97,7 +97,7 @@ class Area:
     pos_rd: Vec = field(init=False)
     facing: Vec = Z
     neighbors: list[Area] = field(default_factory=list)
-    edges: list[Area] = field(default_factory=list)
+    edges: list[Edge] = field(default_factory=list)
 
     def __post_init__(self):
         self.pos_rd = self.pos_lu + X + Y
@@ -123,7 +123,7 @@ class Area:
         return p
 
     @property
-    def corners(self) -> tuple[Vec]:
+    def corners(self) -> tuple[Vec, Vec, Vec, Vec]:
         return (self.pos_lu, self.pos_ld, self.pos_rd, self.pos_ru)
 
 
@@ -185,14 +185,12 @@ def set_edges(areas: list[Area]) -> None:
             x = area.pos_lu.x if area.pos_lu.x - a.pos_lu.x == 1 else a.pos_lu.x
             facing = Y if x > initial_pos.x else -Y
             edge = Edge(Vec(x, area.pos_lu.y + 0.5, 0), facing, [area, a])
-            area.edges.append(edge)
-            a.edges.append(edge)
         if abs(area.pos_lu.y - a.pos_lu.y) == 1:
             y = area.pos_lu.y if area.pos_lu.y - a.pos_lu.y == 1 else a.pos_lu.y
             facing = X if y < initial_pos.y else -X
             edge = Edge(Vec(area.pos_lu.x + 0.5, y, 0), facing, [area, a])
-            area.edges.append(edge)
-            a.edges.append(edge)
+        area.edges.append(edge)
+        a.edges.append(edge)
 
 
 def read_areas(l: int, map: list[str]) -> Iterator[Area]:
@@ -264,6 +262,31 @@ def fold_cube(edges: list[Edge]):
             e.pos = ROT[edge.facing] @ (e.pos - diff) + diff
 
 
+def complete_edges_and_areas(areas: list[Area]):
+    for area in areas:
+        complete_edges(area)
+    complete_areas(areas)
+
+
+def complete_areas(areas: list[Area]):
+    for area in areas:
+        for edge in area.edges:
+            area.neighbors = [a for a in areas if edge.pos in (e.pos for e in a.edges) and a != area]
+            if area not in edge.neighbors:
+                edge.neighbors.append(area)
+
+
+def complete_edges(area: Area):
+    corners = area.corners
+    corners1 = cycle(corners)
+    next(corners1)
+    for i, ends in enumerate(zip(corners, corners1)):
+        c1, c2 = ends
+        edge = Edge((c1 + c2) / 2, c2 - c1, [area])
+        if edge.pos not in (e.pos for e in area.edges):
+            area.edges.insert(i, edge)
+
+
 if __name__ == "__main__":
     args: list[str] = sys.argv[1:]
     test: bool = False
@@ -297,8 +320,6 @@ if __name__ == "__main__":
     set_edges(areas)
     edges: list[Edge] = list(trace_edges(areas[0], None))
 
-    # Fold cube
     fold_cube(edges)
 
-    for area in areas:
-        print(f"{area.pos_lu}, {area.pos_rd}: {area.facing}")
+    complete_edges_and_areas(areas)
