@@ -2,12 +2,16 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
-import sys
+
 import operator
-from typing import Union, Optional, Iterator, Any
 import re
+import sys
 from dataclasses import dataclass, field
-from itertools import product, cycle
+from itertools import cycle, product
+from typing import Any, Iterator, Optional, Union
+
+Map = list[str]
+Cmd = Union[int, str]
 
 
 @dataclass(frozen=True)
@@ -34,12 +38,17 @@ class Vec:
     def __neg__(self) -> Vec:
         return Vec(-self.x, -self.y, -self.z)
 
-    def __mul__(self, other: Vec) -> Vec:
-        return Vec(
-            self.y * other.z - self.z * other.y,
-            self.z * other.x - self.x * other.z,
-            self.x * other.y - self.y * other.x,
-        )
+    def __mul__(self, other: Union[Union[float, int], Vec]) -> Vec:
+        if isinstance(other, (float, int)):
+            return Vec(self.x * other, self.y * other, self.z * other)
+        elif isinstance(other, Vec):
+            return Vec(
+                self.y * other.z - self.z * other.y,
+                self.z * other.x - self.x * other.z,
+                self.x * other.y - self.y * other.x,
+            )
+        else:
+            raise ValueError()
 
     def __truediv__(self, f: float) -> Vec:
         return Vec(self.x / f, self.y / f, self.z / f)
@@ -49,6 +58,16 @@ class Vec:
 
     def index(self, val: Any, op=operator.eq) -> int:
         return next(j for j, v in enumerate(self) if op(v, val))
+
+    def rot(self, ax: Vec, shift: Vec = None, n: int = 1) -> Vec:
+        if shift is None:
+            shift = Vec()
+        i_not_0 = ax.index(0.0, operator.ne)
+        diff = NO[i_not_0] @ shift
+        p = self
+        for _ in range(n):
+            p = ROT[ax] @ (p - diff) + diff
+        return p
 
 
 @dataclass(frozen=True)
@@ -65,7 +84,6 @@ X = Vec(x=1)
 Y = Vec(y=1)
 Z = Vec(z=1)
 ZERO = Vec()
-ONE = X + Y + Z
 
 NO_X = Matrix([ZERO, Y, Z])
 NO_Y = Matrix([X, ZERO, Z])
@@ -92,8 +110,9 @@ ROT = {
 
 @dataclass
 class Area:
+    pos_lu_orig: Vec
     pos_lu: Vec
-    map: list[str]
+    map: Map
     pos_rd: Vec = field(init=False)
     facing: Vec = Z
     neighbors: list[Area] = field(default_factory=list)
@@ -115,12 +134,7 @@ class Area:
         return self.__rot_lu()
 
     def __rot_lu(self, n: int = 1) -> Vec:
-        i_not_0 = self.facing.index(0.0, operator.ne)
-        diff = NO[i_not_0] @ self.center
-        p = self.pos_lu
-        for _ in range(n):
-            p = ROT[self.facing] @ (p - diff) + diff
-        return p
+        return self.pos_lu.rot(self.facing, self.center, n)
 
     @property
     def corners(self) -> tuple[Vec, Vec, Vec, Vec]:
@@ -134,9 +148,9 @@ class Edge:
     neighbors: list[Area] = field(default_factory=list)
 
 
-def read(filename: str) -> tuple[list[str], list[Union[int, str]]]:
+def read(filename: str) -> tuple[Map, list[Cmd]]:
     with open(filename, "r") as reader:
-        map: list[str] = []
+        map: Map = []
         for line in reader:
             if not line.strip():
                 break
@@ -152,7 +166,7 @@ def in_bounds(pos: Vec, max0: int, max1: int) -> bool:
     return 0 <= pos.x <= max0 and 0 <= pos.y <= max1
 
 
-def plot(map: tuple[list[str]], pos: Optional[Vec] = None) -> None:
+def plot(map: Map, pos: Optional[Vec] = None) -> None:
     for i, l in enumerate(map):
         if pos is not None and pos.x == i:
             l = "".join([c if i != pos.y else "*" for i, c in enumerate(l)])
@@ -193,10 +207,10 @@ def set_edges(areas: list[Area]) -> None:
         a.edges.append(edge)
 
 
-def read_areas(l: int, map: list[str]) -> Iterator[Area]:
+def read_areas(l: int, map: Map) -> Iterator[Area]:
     for i, j in product(range(0, len(map), l), range(0, len(map[0]), l)):
         if map[i][j] != " ":
-            yield Area(Vec(float(i // l), float(j // l), 0), [line[j : j + l] for line in map[i : i + l]])
+            yield Area(Vec(i, j), Vec(float(i // l), float(j // l), 0), [line[j : j + l] for line in map[i : i + l]])
 
 
 def trace_neighbors(start: Area, from_area: Area) -> Iterator[tuple[Area, Area]]:
@@ -215,7 +229,7 @@ def trace_edges(start: Area, from_area: Area) -> Iterator[Edge]:
             yield from trace_edges(n, start)
 
 
-def solve1(test: bool, map: list[str], cmds: list[Union[int, str]], pos: Vec, dir: Vec) -> tuple[Vec, Vec]:
+def solve1(test: bool, map: Map, cmds: list[Cmd], pos: Vec, dir: Vec) -> tuple[Vec, Vec]:
     max0 = len(map) - 1
     max1 = len(map[0]) - 1
 
@@ -251,15 +265,13 @@ def solve1(test: bool, map: list[str], cmds: list[Union[int, str]], pos: Vec, di
 
 def fold_cube(edges: list[Edge]):
     for edge in edges:
-        i_not_0 = edge.facing.index(0.0, operator.ne)
-        diff = NO[i_not_0] @ edge.pos
         for area, _ in trace_neighbors(edge.neighbors[1], edge.neighbors[0]):
-            area.facing = ROT[edge.facing] @ area.facing
-            area.pos_lu = ROT[edge.facing] @ (area.pos_lu - diff) + diff
-            area.pos_rd = ROT[edge.facing] @ (area.pos_rd - diff) + diff
+            area.facing = area.facing.rot(edge.facing)
+            area.pos_lu = area.pos_lu.rot(edge.facing, edge.pos)
+            area.pos_rd = area.pos_rd.rot(edge.facing, edge.pos)
         for e in trace_edges(edge.neighbors[1], edge.neighbors[0]):
-            e.facing = ROT[edge.facing] @ e.facing
-            e.pos = ROT[edge.facing] @ (e.pos - diff) + diff
+            e.facing = e.facing.rot(edge.facing)
+            e.pos = e.pos.rot(edge.facing, edge.pos)
 
 
 def complete_edges_and_areas(areas: list[Area]):
@@ -270,21 +282,63 @@ def complete_edges_and_areas(areas: list[Area]):
 
 def complete_areas(areas: list[Area]):
     for area in areas:
+        area.neighbors = []
         for edge in area.edges:
-            area.neighbors = [a for a in areas if edge.pos in (e.pos for e in a.edges) and a != area]
+            neighbor = next(a for a in areas if edge.pos in (e.pos for e in a.edges) and a != area)
+            area.neighbors.append(neighbor)
             if area not in edge.neighbors:
                 edge.neighbors.append(area)
+            if neighbor not in edge.neighbors:
+                edge.neighbors.append(neighbor)
 
 
 def complete_edges(area: Area):
     corners = area.corners
     corners1 = cycle(corners)
     next(corners1)
-    for i, ends in enumerate(zip(corners, corners1)):
+    edges = []
+    for ends in zip(corners, corners1):
         c1, c2 = ends
         edge = Edge((c1 + c2) / 2, c2 - c1, [area])
-        if edge.pos not in (e.pos for e in area.edges):
-            area.edges.insert(i, edge)
+        edges.append(edge)
+    area.edges = edges
+
+
+def solve2(test: bool, map: Map, cmds: list[Cmd], pos: Vec, area: Area, dir: Vec) -> tuple[Vec, Vec]:
+    p_max = len(area.map) - 1
+
+    dir_neigh_map = dict((d, i) for i, d in enumerate([-Y, X, Y, -X]))
+
+    for cmd in cmds:
+        if isinstance(cmd, int):
+            while cmd:  # cmd is number of steps and will count down to 0
+                new_pos = pos + dir
+                new_area = area
+                new_dir = dir
+                if not in_bounds(new_pos, p_max, p_max):
+                    i = dir_neigh_map[dir]
+                    edge = area.edges[i]
+                    new_area = next(n for n in edge.neighbors if n != area)
+                    new_i = next(i for i, e in enumerate(new_area.edges) if e.pos == edge.pos)
+                    n_rot = (new_i + 2 - i) % 4
+                    new_pos = new_pos - dir * (p_max + 1)
+                    new_pos = new_pos.rot(Z, Vec(p_max / 2, p_max / 2), n_rot)
+                    new_dir = new_dir.rot(Z, n=n_rot)
+                if new_area.map[int(new_pos.x)][int(new_pos.y)] == "#":
+                    break
+                else:
+                    cmd -= 1
+                area = new_area
+                pos = new_pos
+                dir = new_dir
+            if test:
+                plot(map, area.pos_lu_orig + pos)
+        else:
+            if cmd == "R":
+                dir = ROT[-Z] @ dir
+            else:
+                dir = ROT[Z] @ dir
+    return area.pos_lu_orig + pos, dir
 
 
 if __name__ == "__main__":
@@ -302,15 +356,16 @@ if __name__ == "__main__":
 
     map, cmds = input
 
+    d = {Y: 0, X: 1, -Y: 2, -X: 3}
+    password = lambda pos, dir: 1000 * (pos.x + 1) + 4 * (pos.y + 1) + d[dir]
+
     ### Part 1
 
     pos = Vec(0, map[0].index("."))
     dir = Y
-    pos, dir = solve1(test, map, cmds, pos, dir)
 
-    d = {Y: 0, X: 1, -Y: 2, -X: 3}
-    password = 1000 * (pos.x + 1) + 4 * (pos.y + 1) + d[dir]
-    print(password)
+    pos, dir = solve1(test, map, cmds, pos, dir)
+    print(password(pos, dir))
 
     ### Part 2
 
@@ -323,3 +378,10 @@ if __name__ == "__main__":
     fold_cube(edges)
 
     complete_edges_and_areas(areas)
+
+    pos = Vec(0, 0)  # starting position
+    a = areas[0]
+    dir = Y
+
+    pos, dir = solve2(test, map, cmds, pos, a, dir)
+    print(int(password(pos, dir)))
