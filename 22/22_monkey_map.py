@@ -158,7 +158,8 @@ def read(filename: str) -> tuple[Map, list[Cmd]]:
         len_max = max(len(l) for l in map)
         map = [l.ljust(len_max) for l in map]
         cmds = reader.readline().strip()
-        res = re.findall(r"(\d+)(R|L)", cmds) + [(re.search(r"\d+$", cmds).group(),)]
+        last_no = re.search(r"\d+$", cmds)
+        res = re.findall(r"(\d+)(R|L)", cmds) + ([(last_no.group(),)] if last_no is not None else [])
         return map, [int(c) if c.isnumeric() else c for cmds in res for c in cmds]
 
 
