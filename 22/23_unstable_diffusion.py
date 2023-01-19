@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Vec:
-    x: float = 0
-    y: float = 0
+    x: int = 0
+    y: int = 0
 
     def __add__(self, other: Vec) -> Vec:
         return Vec(self.x + other.x, self.y + other.y)
@@ -43,22 +43,27 @@ def read(filename: str) -> list[Vec]:
     return res
 
 
-def propose(elves: list[Vec], directions: list[Vec]) -> list[Vec]:
+def propose(elves: list[Vec], directions: list[Vec]) -> tuple[int, list[Vec]]:
     proposals: list[Vec] = []
+    i = 0
     for elve in elves:
         done = False
-        if not any(other_elve in (elve + d for d in all_adjacent_dirs) for other_elve in elves if other_elve != elve):
+        pos = [elve + d for d in all_adjacent_dirs]
+        relevant_elves = [e for e in elves if elve.x - 1 <= e.x <= elve.x + 1 and elve.y - 1 <= e.y <= elve.y + 1]
+        if not any(other_elve in pos for other_elve in relevant_elves if other_elve != elve):
+            i += 1
             proposals.append(elve)
             continue
         for direction in directions:
             adjacent_pos = [elve + d for d in adjacent_dirs[direction]]
-            if not any(other_elve in adjacent_pos for other_elve in elves if other_elve != elve):
+            if not any(other_elve in adjacent_pos for other_elve in relevant_elves if other_elve != elve):
                 proposals.append(elve + direction)
                 done = True
                 break
         if not done:
             proposals.append(elve)
-    return proposals
+    print(i, "elves haven't moved")
+    return i, proposals
 
 
 def move(elves: list[Vec], proposals: list[Vec]):
@@ -81,11 +86,16 @@ def plot(elves: list[Vec]) -> None:
 
 
 def min_max_pos(positions: list[Vec]) -> tuple[int, int, int, int]:
-    x_max = int(max(positions, key=lambda p: p.x).x)
-    y_max = int(max(positions, key=lambda p: p.y).y)
-    x_min = int(min(positions, key=lambda p: p.x).x)
-    y_min = int(min(positions, key=lambda p: p.y).y)
+    x_max = max(positions, key=lambda p: p.x).x
+    y_max = max(positions, key=lambda p: p.y).y
+    x_min = min(positions, key=lambda p: p.x).x
+    y_min = min(positions, key=lambda p: p.y).y
     return x_max, y_max, x_min, y_min
+
+
+def result(elves: list[Vec]) -> int:
+    x_max, y_max, x_min, y_min = min_max_pos(elves)
+    return (x_max - x_min + 1) * (y_max - y_min + 1) - len(elves)
 
 
 if __name__ == "__main__":
@@ -100,18 +110,25 @@ if __name__ == "__main__":
         input = read("input/23.txt")
 
     elves = input
+    n_elves = len(elves)
+    print(n_elves, "elves")
 
     directions = [N, S, W, E]
 
     if test:
         plot(elves)
-    for i in range(10):
+    i = 0
+    while True:
         print("Round", i + 1)
-        proposals = propose(elves, directions)
+        elves.sort(key=lambda e: (e.x, e.y))
+        havent_moved, proposals = propose(elves, directions)
+        if havent_moved == n_elves:
+            break
         elves = move(elves, proposals)
         if test:
             plot(elves)
+        if i == 9:
+            print(result(elves))
         directions = directions[1:] + directions[:1]
-
-    x_max, y_max, x_min, y_min = min_max_pos(elves)
-    print((x_max - x_min + 1) * (y_max - y_min + 1) - len(elves))
+        i += 1
+    print(i + 1)
