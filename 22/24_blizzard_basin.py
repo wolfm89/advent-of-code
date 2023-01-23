@@ -29,15 +29,31 @@ R = Vec(y=1)
 S = Vec()  # S like stay
 
 DIR_MAP = {">": R, "<": L, "^": U, "v": D}
+DIR_MAP_REV = {v: k for k, v in DIR_MAP.items()}
 
 
-def read(filename: str) -> tuple[Vec, list[Vec]]:
+def read(filename: str) -> tuple[Vec, list[Blizzard]]:
     with open(filename, "r") as reader:
         next(reader)
         res = []
         for i, line in enumerate(reader):
             res.extend([Blizzard(Vec(i, j - 1), DIR_MAP[c]) for j, c in enumerate(line.strip()) if c in DIR_MAP.keys()])
     return Vec(i - 1, len(line.strip()) - 3), res
+
+
+def plot(blizzards: list[Blizzard], max_: Vec) -> None:
+    entry = 1
+    exit = max_.y + 1
+    print("".join("#" if i != entry else "." for i in range(max_.y + 3)))
+    for i in range(max_.x + 1):
+        line = "#"
+        for j in range(max_.y + 1):
+            blizzard = next((b for b in blizzards if b.pos == Vec(i, j)), None)
+            line += DIR_MAP_REV[blizzard.dir] if blizzard is not None else "."
+        line += "#"
+        print(line)
+    print("".join("#" if i != exit else "." for i in range(max_.y + 3)))
+    print()
 
 
 if __name__ == "__main__":
@@ -52,3 +68,7 @@ if __name__ == "__main__":
         input = read("input/24.txt")
 
     max_, blizzards = input
+
+    pos = Vec(-1, 0)
+
+    plot(blizzards, max_)
