@@ -51,7 +51,7 @@ def read(filename: str) -> tuple[Vec, list[Blizzard]]:
     return Vec(i, len(line.strip()) - 2), res
 
 
-def plot(blizzards: list[Blizzard], max_: Vec, positions: list[Vec] = []) -> None:
+def plot(blizzards: list[Blizzard], max_: Vec, positions: set[Vec] = set()) -> None:
     entry = 1
     exit = max_.y
     print("".join("#" if i != entry else "." for i in range(max_.y + 2)))
@@ -112,20 +112,23 @@ if __name__ == "__main__":
 
     entry = Vec(0, 1)
     exit = Vec(max_.x + 1, max_.y)
-    print(exit)
     t = 0
 
-    positions = [entry]
-    while True:
-        print(t, len(positions), min(positions, key=lambda p: (exit - p).len()))
-        t += 1
-        move(blizzards, max_)
-        possible_pos = set()
-        for pos in positions:
-            possible_pos.update(step(pos, blizzards, max_))
-        if exit in possible_pos:
-            break
-        positions = possible_pos
-        # plot(blizzards, max_, positions)
-    # plot(blizzards, max_, positions)
-    print(t)
+    starts = [entry, exit, entry]
+    ends = [exit, entry, exit]
+
+    for start, end in zip(starts, ends):
+        positions = {start}
+        while True:
+            print(t, len(positions), min(positions, key=lambda p: (exit - p).len()))
+            t += 1
+            move(blizzards, max_)
+            possible_pos = set()
+            for pos in positions:
+                possible_pos.update(step(pos, blizzards, max_))
+            if end in possible_pos:
+                break
+            positions = possible_pos
+        plot(blizzards, max_, positions)
+        print(t)
+        print()
