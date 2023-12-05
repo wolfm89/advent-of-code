@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from typing import Set
 
+
 # A dataclass that stores a card's information:
 # the winning numbers, the player's numbers, matching numbers, and the number of copies of the card
 @dataclass

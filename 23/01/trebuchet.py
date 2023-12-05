@@ -4,7 +4,19 @@
 import re
 
 # List of regex patterns for digits 0-9 and words one-nine
-numbers = [r"\d", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+numbers = [
+    r"\d",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+]
+
 
 def str_to_int(string):
     """
@@ -16,11 +28,13 @@ def str_to_int(string):
     except ValueError:
         return numbers.index(string)
 
+
 def get_calibration_value_part1(line):
     digits = re.findall(r"\d", line)
     first_digit = str_to_int(digits[0])
     last_digit = str_to_int(digits[-1])
     return first_digit * 10 + last_digit
+
 
 def get_calibration_value_part2(line):
     """
@@ -33,6 +47,7 @@ def get_calibration_value_part2(line):
     first_digit = str_to_int(digits[0])
     last_digit = str_to_int(digits[-1])
     return first_digit * 10 + last_digit
+
 
 if __name__ == "__main__":
     with open("input/data.txt", "r") as reader:
